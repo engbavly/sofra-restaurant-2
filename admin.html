@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة الطلبات</title>
+  <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="layout" style="flex-direction:column;align-items:stretch">
+    <h1>لوحة الطلبات</h1>
+    <p><input id="pw" type="password" placeholder="كلمة السر"> <button class="btn" id="go">دخول</button></p>
+    <div id="orders" style="display:grid;gap:12px"></div>
+  </div>
+  <script>
+    const ordersEl = document.getElementById("orders");
+    const pwEl = document.getElementById("pw");
+    const headers = () => ({ "x-admin-password": pwEl.value, "Content-Type": "application/json" });
+
+    async function load() {
+      const res = await fetch("/api/orders", { headers: headers() });
+      if (!res.ok) { ordersEl.textContent = "كلمة السر غلط"; return; }
+      const orders = await res.json();
+      ordersEl.innerHTML = "";
+      if (orders.length === 0) ordersEl.textContent = "مفيش طلبات لسه";
+      orders.forEach((o) => {
+        const box = document.createElement("div");
+        box.className = "order";
+        // textContent مش innerHTML: بيانات العميل ممكن تحتوي كود خبيث
+        const add = (t) => { const p = document.createElement("p"); p.textContent = t; box.appendChild(p); };
+        add(`${o.name} — ${o.phone}`);
+        add(o.address + (o.notes ? " — " + o.notes : ""));
+        add(o.items.map((i) => `${i.name} × ${i.qty}`).join("، "));
+        add(`الإجمالي: ${o.total} ج.م — الحالة: ${o.status}`);
+        const b = document.createElement("button");
+        b.className = "btn";
+        b.textContent = o.status === "تم" ? "رجّعه جديد" : "تم التسليم";
+        b.onclick = async () => {
+          await fetch("/api/orders/" + o.id, {
+            method: "PATCH",
+            headers: headers(),
+            body: JSON.stringify({ status: o.status === "تم" ? "جديد" : "تم" }),
+          });
+          load();
+        };
+        box.appendChild(b);
+        ordersEl.appendChild(box);
+      });
+    }
+    document.getElementById("go").onclick = load;
+  </script>
+</body>
+</html>
